@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: darkred;
+  stroke-width: 1.5px;
+}
+
+</style>
+<body>
+<script src="//d3js.org/d3.v3.min.js"></script>
+<script>
+
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var formatDate = d3.time.format("%Y");
+    bisectDate = d3.bisector(function(d) { return d.date; }).left; // **
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+var line = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.killed); });
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var focus = svg.append("g")                                // **********
+    .style("display", "none");
+
+//https://vincentarelbundock.github.io/Rdatasets/csv/pscl/prussian.csv
+d3.csv("prussian.csv", type, function(error, data) {
+  if (error) throw error;
+
+  x.domain(d3.extent(data, function(d) { return d.date; }));
+  y.domain(d3.extent(data, function(d) { return d.killed; }));
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Killed");
+
+  svg.append("path")
+      .datum(data)
+      .attr("class", "line")
+      .attr({
+      'd': line,//http://jaketrent.com/post/animating-d3-line/
+      'stroke-dasharray': '3000 3000',
+      'stroke-dashoffset': 3000
+    })
+    .transition()
+    .duration(15000)
+    .attr('stroke-dashoffset', 0);
+
+  svg.append("line")
+    .style("stroke","blue")
+    .attr("x1", 0)
+    .attr("y1", 265)
+    .attr("x2", 960)
+    .attr("y2", 265);
+
+
+   // append the x line
+    focus.append("line")
+        .attr("class", "x")
+        .style("stroke", "blue")
+        .style("stroke-dasharray", "3,3")
+        .style("opacity", 0.5)
+        .attr("y1", 0)
+        .attr("y2", height);
+
+    // append the y line
+    focus.append("line")
+        .attr("class", "y")
+        .style("stroke", "blue")
+        .style("stroke-dasharray", "3,3")
+        .style("opacity", 0.5)
+        .attr("x1", width)
+        .attr("x2", width);
+
+    // append the circle at the intersection
+    focus.append("circle")
+        .attr("class", "y")
+        .style("fill", "none")
+        .style("stroke", "blue")
+        .attr("r", 4);
+
+    // place the value at the intersection
+    focus.append("text")
+        .attr("class", "y1")
+        .style("stroke", "white")
+        .style("stroke-width", "3.5px")
+        .style("opacity", 0.8)
+        .attr("dx", 8)
+        .attr("dy", "-.3em");
+    focus.append("text")
+        .attr("class", "y2")
+        .attr("dx", 8)
+        .attr("dy", "-.3em");
+
+    // place the date at the intersection
+    focus.append("text")
+        .attr("class", "y3")
+        .style("stroke", "white")
+        .style("stroke-width", "3.5px")
+        .style("opacity", 0.8)
+        .attr("dx", 8)
+        .attr("dy", "1em");
+    focus.append("text")
+        .attr("class", "y4")
+        .attr("dx", 8)
+        .attr("dy", "1em");
+    
+    // append the rectangle to capture mouse
+    svg.append("rect")
+        .attr("width", width)
+        .attr("height", height)
+        .style("fill", "none")
+        .style("pointer-events", "all")
+        .on("mouseover", function() { focus.style("display", null); })
+        .on("mouseout", function() { focus.style("display", "none"); })
+        .on("mousemove", mousemove);   // **********
+
+  function mousemove() {
+    var x0 = x.invert(d3.mouse(this)[0]),
+        i = bisectDate(data, x0, 1),
+        d0 = data[i - 1],
+        d1 = data[i],
+        d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+
+    focus.select("circle.y")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")");
+
+    focus.select("text.y1")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")")
+        .text(d.killed + " killed");
+
+    focus.select("text.y2")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")")
+        .text(d.killed + " killed");
+
+    focus.select("text.y3")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")")
+        .text(formatDate(d.date));
+
+    focus.select("text.y4")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")")
+        .text(formatDate(d.date));
+
+    focus.select(".x")
+        .attr("transform",
+              "translate(" + x(d.date) + "," +
+                             y(d.killed) + ")")
+                   .attr("y2", height - y(d.killed));
+
+    focus.select(".y")
+        .attr("transform",
+              "translate(" + width * -1 + "," +
+                             y(d.killed) + ")")
+                   .attr("x2", width + width);
+  }      // **********
+
+
+});
+
+function type(d) {
+  d.date = formatDate.parse(d.date);
+  d.killed = +d.killed;
+  return d;
+}
+svg.append("text")
+        .attr("x", (width / 2))             
+        .attr("y", 0)
+        .attr("text-anchor", "middle")  
+        .style("font-size", "16px") 
+        .style("text-decoration", "bold")  
+        .text("Prussian Soldiers Killed By Horse Kicks");
+
+svg.append("text")
+        .attr("x", width-40)             
+        .attr("y", 255)
+        .attr("fill", "blue")
+        .attr("text-anchor", "middle")  
+        .style("font-size", "12px") 
+        .style("text-decoration", "bold")  
+        .text("9.25 Killed on Average");
+
+
+</script>
